@@ -51,22 +51,9 @@ void test_playing_end_to_idle() {
     TEST_ASSERT_EQUAL(AppState::IDLE, app_on_event(c, AppEvent::PLAYBACK_END));
 }
 
-void test_retryable_error_once_goes_retry_then_uploading_again() {
+void test_retryable_error_goes_to_error() {
     AppCtx c{};
     c.state = AppState::WAITING;
-    c.retries_used = 0;
-    c.last_error_retryable = true;
-    auto s = app_on_event(c, AppEvent::ERROR_RETRYABLE);
-    TEST_ASSERT_EQUAL(AppState::RETRY, s);
-    c.state = s;
-    TEST_ASSERT_EQUAL(AppState::UPLOADING, app_on_event(c, AppEvent::RETRY_TICK));
-    TEST_ASSERT_EQUAL_INT(1, c.retries_used);
-}
-
-void test_second_retryable_falls_through_to_error() {
-    AppCtx c{};
-    c.state = AppState::WAITING;
-    c.retries_used = 1;
     c.last_error_retryable = true;
     TEST_ASSERT_EQUAL(AppState::ERROR, app_on_event(c, AppEvent::ERROR_RETRYABLE));
 }
@@ -74,9 +61,15 @@ void test_second_retryable_falls_through_to_error() {
 void test_non_retryable_error_goes_straight_to_error() {
     AppCtx c{};
     c.state = AppState::WAITING;
-    c.retries_used = 0;
-    c.last_error_retryable = false;
     TEST_ASSERT_EQUAL(AppState::ERROR, app_on_event(c, AppEvent::ERROR_NON_RETRYABLE));
+}
+
+void test_error_clear_returns_to_idle() {
+    AppCtx c{};
+    c.state = AppState::ERROR;
+    c.last_error_retryable = true;
+    TEST_ASSERT_EQUAL(AppState::IDLE, app_on_event(c, AppEvent::ERROR_CLEAR));
+    TEST_ASSERT_FALSE(c.last_error_retryable);
 }
 
 void test_wifi_loss_during_any_busy_state_goes_error() {
@@ -103,9 +96,9 @@ int main(int, char**) {
     RUN_TEST(test_waiting_first_byte_to_downloading);
     RUN_TEST(test_downloading_to_playing);
     RUN_TEST(test_playing_end_to_idle);
-    RUN_TEST(test_retryable_error_once_goes_retry_then_uploading_again);
-    RUN_TEST(test_second_retryable_falls_through_to_error);
+    RUN_TEST(test_retryable_error_goes_to_error);
     RUN_TEST(test_non_retryable_error_goes_straight_to_error);
+    RUN_TEST(test_error_clear_returns_to_idle);
     RUN_TEST(test_wifi_loss_during_any_busy_state_goes_error);
     RUN_TEST(test_vol_buttons_ignored_outside_idle_playing);
     return UNITY_END();

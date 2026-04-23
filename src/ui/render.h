@@ -14,6 +14,7 @@ struct UiModel {
     uint32_t    now_ms = 0;
     uint32_t    vol_changed_ms = 0;
     uint32_t    record_started_ms = 0;
+    uint32_t    health_spinner_started_ms = 0;   // 0 = idle; non-zero = animation start time
     const char* error_code = "";
 };
 

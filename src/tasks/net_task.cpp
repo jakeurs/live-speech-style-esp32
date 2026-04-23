@@ -67,7 +67,8 @@ void handle_send(const SendCmd& sc) {
     }
 
     RestyleRequest req{};
-    req.style_id       = g_styles.count ? g_styles.ids[g_app_ctx.style_idx] : "jesus";
+    uint8_t idx = (g_app_ctx.style_idx < g_styles.count) ? g_app_ctx.style_idx : 0;
+    req.style_id       = g_styles.count ? g_styles.ids[idx] : "jesus";
     req.language       = "en";
     req.pcm_bytes      = (const uint8_t*)g_rb;
     req.pcm_byte_count = sc.frames * sizeof(int16_t);

@@ -85,5 +85,23 @@ void loop() {
         }
     }
 
+    static uint32_t g_last_health_ms = 0;
+    if (g_app_ctx.state == AppState::IDLE
+        && wifi_connected()
+        && g_styles.count > 0) {
+        uint32_t now = millis();
+        if (g_last_health_ms == 0 || now - g_last_health_ms >= 60000) {
+            g_last_health_ms = now;
+            HealthStatus h{};
+            if (health_fetch(h)) {
+                log_line(LOG_INFO, "main", "health_ok",
+                         "stt=%d llm=%d tts=%d", h.stt_ok, h.llm_ok, h.tts_ok);
+                ui_task_start_health_spinner();
+            } else {
+                log_line(LOG_WARN, "main", "health_fail", "");
+            }
+        }
+    }
+
     delay(5);
 }

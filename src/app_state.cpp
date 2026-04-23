@@ -20,21 +20,15 @@ AppState app_on_event(AppCtx& c, AppEvent ev) {
             return c.state;
         case AppState::UPLOADING:
             if (ev == AppEvent::UPLOAD_DONE) return AppState::WAITING;
-            if (ev == AppEvent::ERROR_RETRYABLE) {
-                if (c.retries_used == 0 && c.last_error_retryable) return AppState::RETRY;
-                return AppState::ERROR;
-            }
-            if (ev == AppEvent::ERROR_NON_RETRYABLE || ev == AppEvent::ERROR_TIMEOUT)
-                return AppState::ERROR;
+            if (ev == AppEvent::ERROR_RETRYABLE
+                || ev == AppEvent::ERROR_NON_RETRYABLE
+                || ev == AppEvent::ERROR_TIMEOUT) return AppState::ERROR;
             return c.state;
         case AppState::WAITING:
             if (ev == AppEvent::SERVER_FIRST_BYTE) return AppState::DOWNLOADING;
-            if (ev == AppEvent::ERROR_RETRYABLE) {
-                if (c.retries_used == 0 && c.last_error_retryable) return AppState::RETRY;
-                return AppState::ERROR;
-            }
-            if (ev == AppEvent::ERROR_NON_RETRYABLE || ev == AppEvent::ERROR_TIMEOUT)
-                return AppState::ERROR;
+            if (ev == AppEvent::ERROR_RETRYABLE
+                || ev == AppEvent::ERROR_NON_RETRYABLE
+                || ev == AppEvent::ERROR_TIMEOUT) return AppState::ERROR;
             return c.state;
         case AppState::DOWNLOADING:
             if (ev == AppEvent::DOWNLOAD_DONE) return AppState::PLAYING;
@@ -44,15 +38,8 @@ AppState app_on_event(AppCtx& c, AppEvent ev) {
         case AppState::PLAYING:
             if (ev == AppEvent::PLAYBACK_END) return AppState::IDLE;
             return c.state;
-        case AppState::RETRY:
-            if (ev == AppEvent::RETRY_TICK) {
-                c.retries_used++;
-                return AppState::UPLOADING;
-            }
-            return c.state;
         case AppState::ERROR:
-            if (ev == AppEvent::RETRY_TICK) {
-                c.retries_used = 0;
+            if (ev == AppEvent::ERROR_CLEAR) {
                 c.last_error_retryable = false;
                 return AppState::IDLE;
             }
@@ -71,7 +58,6 @@ const char* app_state_name(AppState s) {
         case AppState::WAITING:     return "WAITING";
         case AppState::DOWNLOADING: return "DOWNLOADING";
         case AppState::PLAYING:     return "PLAYING";
-        case AppState::RETRY:       return "RETRY";
         case AppState::ERROR:       return "ERROR";
         case AppState::NO_WIFI:     return "NO_WIFI";
     }

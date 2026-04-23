@@ -18,7 +18,6 @@ bool            g_wake_held = false;
 uint32_t        g_record_started_ms = 0;
 AppState        g_prev_state = AppState::IDLE;
 uint32_t        g_error_since_ms = 0;
-uint32_t        g_retry_since_ms = 0;
 
 void apply_style_index() {
     if (!g_styles || g_styles->count == 0) {
@@ -108,6 +107,7 @@ void ui_task_set_wifi(bool ok) {
 void ui_task_set_progress(uint32_t d, uint32_t t) { g_ui.bytes_done = d; g_ui.bytes_total = t; }
 void ui_task_set_error(const char* c)             { g_ui.error_code = c ? c : ""; }
 void ui_task_set_send_callback(UiSendCallback cb) { g_send_cb = cb; }
+void ui_task_start_health_spinner()               { g_ui.health_spinner_started_ms = millis(); }
 
 void ui_task_tick(uint32_t now_ms) {
     BtnEvent e;
@@ -135,12 +135,7 @@ void ui_task_tick(uint32_t now_ms) {
         g_error_since_ms = now_ms;
     }
     if (g_ctx->state == AppState::ERROR && now_ms - g_error_since_ms >= 3000) {
-        g_ctx->state = app_on_event(*g_ctx, AppEvent::RETRY_TICK);
-    }
-
-    // Track RETRY entry time (net task handles retry internally)
-    if (g_ctx->state == AppState::RETRY && g_prev_state != AppState::RETRY) {
-        g_retry_since_ms = now_ms;
+        g_ctx->state = app_on_event(*g_ctx, AppEvent::ERROR_CLEAR);
     }
 
     g_prev_state = g_ctx->state;

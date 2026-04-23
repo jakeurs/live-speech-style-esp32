@@ -5,6 +5,22 @@
 
 namespace {
 
+constexpr const char* SPINNER_FRAMES[] = {"-", "\\", "|", "/", "-", "\\", "|", "/", ""};
+constexpr int         SPINNER_COUNT    = 9;
+constexpr uint32_t    SPINNER_FRAME_MS = 150;
+
+void maybe_spinner(const UiModel& m) {
+    if (m.state != AppState::IDLE)                return;
+    if (m.health_spinner_started_ms == 0)         return;
+    if (m.now_ms - m.vol_changed_ms < 1000)       return;  // vol overlay has priority
+    uint32_t elapsed = m.now_ms - m.health_spinner_started_ms;
+    int frame = (int)(elapsed / SPINNER_FRAME_MS);
+    if (frame < 0 || frame >= SPINNER_COUNT)      return;
+    const char* ch = SPINNER_FRAMES[frame];
+    if (!ch[0])                                   return;
+    oled_text(116, 48, 2, ch);
+}
+
 // Render size-2 text from the column that centers it (best-effort).
 // n chars * 12 px = n*12 total width; start x = (128 - n*12) / 2.
 void center_size2(int y, const char* s) {
@@ -74,7 +90,6 @@ void ui_render(const UiModel& m) {
         case AppState::WAITING:     center_size2(16, "THINKING"); break;
         case AppState::DOWNLOADING: center_size2(16, "RECVING"); break;
         case AppState::PLAYING:     center_size2(16, "PLAYING"); break;
-        case AppState::RETRY:       center_size2(16, "RETRY"); break;
         case AppState::ERROR:       center_size2(16, "ERROR"); break;
         case AppState::NO_WIFI:     center_size2(16, "NO WIFI"); break;
         case AppState::RECORDING: {
@@ -104,5 +119,6 @@ void ui_render(const UiModel& m) {
         maybe_vol_overlay(m);
     }
 
+    maybe_spinner(m);
     oled_show();
 }

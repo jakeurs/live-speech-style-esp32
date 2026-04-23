@@ -72,6 +72,10 @@ bool http_restyle(const RestyleRequest& req, RestyleResult& res, MilestoneCb cb)
         "Content-Disposition: form-data; name=\"audio\"; filename=\"utterance.wav\"\r\n"
         "Content-Type: audio/wav\r\n\r\n",
         boundary, req.style_id, boundary);
+    if (pn < 0 || (size_t)pn >= sizeof(prologue)) {
+        log_line(LOG_ERROR, "net", "prologue_overflow", "pn=%d", pn);
+        c.stop(); res.ok = false; return false;
+    }
 
     // Multipart epilogue: language part + closing boundary
     char epilogue[512];
@@ -80,6 +84,10 @@ bool http_restyle(const RestyleRequest& req, RestyleResult& res, MilestoneCb cb)
         "Content-Disposition: form-data; name=\"language\"\r\n\r\n%s\r\n"
         "--%s--\r\n",
         boundary, req.language ? req.language : "en", boundary);
+    if (en < 0 || (size_t)en >= sizeof(epilogue)) {
+        log_line(LOG_ERROR, "net", "epilogue_overflow", "en=%d", en);
+        c.stop(); res.ok = false; return false;
+    }
 
     const uint32_t body_len = (uint32_t)pn + wav_total + (uint32_t)en;
 
@@ -95,6 +103,10 @@ bool http_restyle(const RestyleRequest& req, RestyleResult& res, MilestoneCb cb)
         "Connection: close\r\n"
         "\r\n",
         SERVER_HOST, SERVER_PORT, boundary, (unsigned)body_len, req.request_id);
+    if (rn < 0 || (size_t)rn >= sizeof(req_line)) {
+        log_line(LOG_ERROR, "net", "req_line_overflow", "rn=%d", rn);
+        c.stop(); res.ok = false; return false;
+    }
 
     const uint32_t upload_deadline = millis() + 10000;  // 10 s for upload
 

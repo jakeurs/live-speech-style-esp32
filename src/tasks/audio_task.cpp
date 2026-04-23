@@ -14,12 +14,23 @@ I2SInCtx      g_rec_ctx{};
 std::atomic<uint16_t> g_out_rms{0};
 std::atomic<uint8_t>  g_vol_x10{6};
 bool g_recording = false;
+std::atomic<bool> g_response_playing{false};
+std::atomic<bool> g_response_just_finished{false};
 
 void on_fill(int16_t* buf, size_t frames) {
     SfxCmd c;
-    while (xQueueReceive(g_sfx_q, &c, 0) == pdTRUE) sfx_apply(c);
+    while (xQueueReceive(g_sfx_q, &c, 0) == pdTRUE) {
+        if (c.event == SfxEvent::PLAYBACK_START_RESPONSE) g_response_playing.store(true);
+        sfx_apply(c);
+    }
+    bool was_active = mixer_voice_active(0);
     float v = g_vol_x10.load() / 10.0f;
     mixer_render(buf, frames, v);
+    bool still_active = mixer_voice_active(0);
+    if (g_response_playing.load() && was_active && !still_active) {
+        g_response_playing.store(false);
+        g_response_just_finished.store(true);
+    }
     uint64_t acc = 0;
     for (size_t i = 0; i < frames; i++) acc += (int32_t)buf[i] * buf[i];
     uint32_t rms = frames ? (uint32_t)sqrtf((float)(acc / frames)) : 0;
@@ -60,3 +71,9 @@ size_t audio_task_stop_recording() {
 uint16_t audio_task_mic_rms()    { return g_rec_ctx.last_rms.load(std::memory_order_relaxed); }
 uint16_t audio_task_output_rms() { return g_out_rms.load(std::memory_order_relaxed); }
 void audio_task_set_volume_x10(uint8_t v) { g_vol_x10.store(v > 10 ? 10 : v); }
+
+bool audio_task_consume_playback_end() {
+    bool f = g_response_just_finished.load();
+    if (f) g_response_just_finished.store(false);
+    return f;
+}

@@ -11,3 +11,4 @@ size_t audio_task_stop_recording();   // returns frames captured
 uint16_t audio_task_mic_rms();
 uint16_t audio_task_output_rms();
 void audio_task_set_volume_x10(uint8_t v);
+bool audio_task_consume_playback_end();   // returns true once after a response WAV finishes playing

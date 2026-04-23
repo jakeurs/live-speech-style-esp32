@@ -16,6 +16,9 @@ UiSendCallback  g_send_cb = nullptr;
 uint32_t        g_last_render_ms = 0;
 bool            g_wake_held = false;
 uint32_t        g_record_started_ms = 0;
+AppState        g_prev_state = AppState::IDLE;
+uint32_t        g_error_since_ms = 0;
+uint32_t        g_retry_since_ms = 0;
 
 void apply_style_index() {
     if (!g_styles || g_styles->count == 0) {
@@ -119,6 +122,28 @@ void ui_task_tick(uint32_t now_ms) {
         size_t frames = audio_task_stop_recording();
         send(frames);
     }
+
+    // Response playback finished → post PLAYBACK_END
+    if (audio_task_consume_playback_end()) {
+        SfxCmd c{}; c.event = SfxEvent::PLAYBACK_END;
+        audio_task_enqueue(c);
+        g_ctx->state = app_on_event(*g_ctx, AppEvent::PLAYBACK_END);
+    }
+
+    // Track ERROR entry time and auto-clear after 3 s
+    if (g_ctx->state == AppState::ERROR && g_prev_state != AppState::ERROR) {
+        g_error_since_ms = now_ms;
+    }
+    if (g_ctx->state == AppState::ERROR && now_ms - g_error_since_ms >= 3000) {
+        g_ctx->state = app_on_event(*g_ctx, AppEvent::RETRY_TICK);
+    }
+
+    // Track RETRY entry time (net task handles retry internally)
+    if (g_ctx->state == AppState::RETRY && g_prev_state != AppState::RETRY) {
+        g_retry_since_ms = now_ms;
+    }
+
+    g_prev_state = g_ctx->state;
 
     // Refresh UI model from live sources
     g_ui.state = g_ctx->state;

@@ -19,6 +19,10 @@ using LogClockFn = uint32_t (*)();
 void log_set_sink(LogSink sink);
 void log_set_clock_ms(LogClockFn clock_fn);
 
+// Arduino convenience: wires Serial as sink and millis() as clock.
+// Defined in log_arduino.cpp (excluded from native/test builds).
+void log_init_arduino();
+
 // Emit a log line:  [<ss.mmm>] LEVEL module event key=val ...
 void log_line(LogLevel level, const char* module, const char* event,
               const char* fmt, ...);

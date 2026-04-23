@@ -22,8 +22,6 @@ static uint8_t* g_response_buf = nullptr;
 static constexpr size_t RECORD_BYTES   = 1920000;  // 60 s @ 16 kHz mono int16
 static constexpr size_t RESPONSE_BYTES = 2000000;  // 2 MB cap
 
-static bool g_boot_fetch_done = false;
-
 static void wifi_cb(bool ok) { ui_task_set_wifi(ok); }
 
 void setup() {
@@ -61,25 +59,29 @@ void setup() {
 void loop() {
     ui_task_tick(millis());
 
-    // One-time boot fetch of the styles list once WiFi is up.
-    // Done here, NOT in the wifi callback (that runs on arduino_events
-    // task which has a tiny stack).
-    if (!g_boot_fetch_done && wifi_connected()) {
-        g_boot_fetch_done = true;
-        if (styles_fetch(g_styles)) {
-            log_line(LOG_INFO, "main", "styles_loaded",
-                     "count=%u", (unsigned)g_styles.count);
-            // Clamp style_idx if the saved index is out of range
-            if (g_app_ctx.style_idx >= g_styles.count) {
-                g_app_ctx.style_idx = 0;
-                NvsState ns = nvs_load();
-                ns.style_idx = 0;
-                strncpy(ns.style_id, g_styles.ids[0], sizeof(ns.style_id) - 1);
-                ns.style_id[sizeof(ns.style_id) - 1] = 0;
-                nvs_save(ns);
+    // Fetch the styles list once WiFi is up. Retry every 30 s until successful,
+    // so boot-time server flakiness doesn't leave the device permanently style-less.
+    // Done here, NOT in the wifi callback — that runs on arduino_events task
+    // which has a tiny stack.
+    static uint32_t g_last_style_attempt_ms = 0;
+    if (g_styles.count == 0 && wifi_connected()) {
+        uint32_t now = millis();
+        if (g_last_style_attempt_ms == 0 || now - g_last_style_attempt_ms >= 30000) {
+            g_last_style_attempt_ms = now;
+            if (styles_fetch(g_styles)) {
+                log_line(LOG_INFO, "main", "styles_loaded",
+                         "count=%u", (unsigned)g_styles.count);
+                if (g_app_ctx.style_idx >= g_styles.count) {
+                    g_app_ctx.style_idx = 0;
+                    NvsState ns = nvs_load();
+                    ns.style_idx = 0;
+                    strncpy(ns.style_id, g_styles.ids[0], sizeof(ns.style_id) - 1);
+                    ns.style_id[sizeof(ns.style_id) - 1] = 0;
+                    nvs_save(ns);
+                }
+            } else {
+                log_line(LOG_WARN, "main", "styles_load_fail", "");
             }
-        } else {
-            log_line(LOG_WARN, "main", "styles_load_fail", "");
         }
     }
 
